@@ -1,6 +1,6 @@
 # Have you met Ted?
 
-> *"Ted Mosby is an architect. So is this."*
+> *"Dude, lots of chicks think architects are hot. Think about it, you create something out of nothing. You're like God."*
 
 Ted is a Claude Code agent that automatically maintains `ARCHITECTURE.md` for any project. On every git commit, he reads your source files, maps the components, draws a Mermaid diagram, and flags any gaps — just like Ted Mosby would, if Ted Mosby were a git hook.
 
@@ -65,7 +65,7 @@ commit triggered
 
 ### Gap detection
 
-Ted marks components involved in a mismatch with `classDef warning fill:#ff6b6b` in the Mermaid diagram, and explains each gap in prose below it. Because Ted knows what it feels like when things don't connect the way they should.
+Ted marks components involved in a mismatch with `classDef warning fill:#ff6b6b` in the Mermaid diagram, and explains each gap in prose below it. Because Ted knows what it feels like when things don't connect the way they should. Classic Schmosby
 
 ---
 
@@ -73,14 +73,6 @@ Ted marks components involved in a mismatch with `classDef warning fill:#ff6b6b`
 
 - [Claude Code](https://claude.ai/code) CLI installed and authenticated
 - Git
-
----
-
-## The name
-
-Ted Mosby, the main character of *How I Met Your Mother*, is an architect.  
-This agent maintains architecture.  
-The name wrote itself.
 
 ---
 
