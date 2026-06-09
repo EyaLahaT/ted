@@ -71,9 +71,49 @@ EOF
   echo "  ${GREEN}✓${RESET} Pre-commit hook installed."
 fi
 
-# ── 4. Done ───────────────────────────────────────────────────────────────────
+# ── 4. Configure permissions ─────────────────────────────────────────────────
+echo "→ Configuring Claude Code permissions ..."
+
+SETTINGS_DIR=".claude"
+SETTINGS_FILE="$SETTINGS_DIR/settings.json"
+
+TED_PERMS='["Read(*)", "Write(ARCHITECTURE.md)", "Bash(git diff*)", "Bash(git ls-files*)", "Bash(git add ARCHITECTURE.md)"]'
+
+mkdir -p "$SETTINGS_DIR"
+
+SETTINGS_FILE="$SETTINGS_FILE" TED_PERMS="$TED_PERMS" python3 << 'PYEOF'
+import json, os
+
+settings_path = os.environ['SETTINGS_FILE']
+ted_perms = json.loads(os.environ['TED_PERMS'])
+
+if os.path.exists(settings_path):
+    with open(settings_path) as f:
+        settings = json.load(f)
+else:
+    settings = {}
+
+perms = settings.setdefault('permissions', {})
+allow = perms.setdefault('allow', [])
+
+added = [p for p in ted_perms if p not in allow]
+allow.extend(added)
+
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=2)
+    f.write('\n')
+
+if added:
+    print(f"  Added: {', '.join(added)}")
+else:
+    print("  Already configured.")
+PYEOF
+
+echo "  ${GREEN}✓${RESET} .claude/settings.json updated."
+
+# ── 5. Done ───────────────────────────────────────────────────────────────────
 echo ""
-echo "${BOLD}${GREEN}Ted is in the building.${RESET}"
+echo "${BOLD}${GREEN}Teddy Westside is in the building.${RESET}"
 echo ""
 echo "  He will update ARCHITECTURE.md on every commit."
 echo "  Run ${BOLD}/update-architecture${RESET} manually to generate it right now."

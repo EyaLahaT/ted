@@ -22,32 +22,58 @@ Run:
 git diff --cached --name-only --diff-filter=D
 ```
 
+Examine each deleted file:
+- If any deleted file is a **package-defining file** (`package.json`, `package.xml`, `setup.py`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `CMakeLists.txt`) → **FULL GENERATION**
 - If `ARCHITECTURE.md` does not exist → **FULL GENERATION**
-- If the above command returns any files (deletions staged) → **FULL GENERATION**
-- Otherwise → **INCREMENTAL UPDATE**
+- Otherwise → **INCREMENTAL UPDATE** (deleted source files are treated as edits to their package)
 
 ---
 
 ## Step 3A — FULL GENERATION
 
-### 3A-1. Explore the project
+### 3A-1. Discover project structure
 
-- List all files in the repo, excluding: `build/`, `install/`, `log/`, `node_modules/`, `.git/`, `__pycache__/`, `*.egg-info`, `dist/`, `.venv/`, `venv/`
-- Identify the project's language/stack (ROS2, Node, Python, Go, Rust, etc.)
-- Identify all **packages/modules** — the natural units of the project (directories with `package.xml`, `package.json`, `setup.py`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `CMakeLists.txt`, or top-level source directories)
-- For each package, read all source files
+Run:
+```
+git ls-files
+```
 
-### 3A-2. Analyse
+Look for package-defining files: `package.json`, `package.xml`, `setup.py`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `CMakeLists.txt`.
 
-For each package extract:
+- If none found → fall back: treat each top-level directory containing source files as a package.
+
+Count the packages:
+- **1 package** → **SINGLE-PACKAGE MODE** (file-level diagram)
+- **2+ packages** → **MULTI-PACKAGE MODE** (package-level diagram)
+
+### 3A-2. Read source files
+
+For each package, run:
+```
+git ls-files <package-directory>
+```
+
+Read all files returned. Gitignored files are automatically excluded.
+
+### 3A-3. Analyse
+
+**MULTI-PACKAGE MODE** — for each package extract:
 - **Purpose** — what it does in one sentence
 - **Exposes** — services, APIs, topics, routes, exports it provides to others
 - **Consumes** — services, APIs, topics, routes, imports it depends on from others
-- **External dependencies** — third-party libraries that affect architecture
+- **External I/O** — third-party systems with active data exchange (network APIs, databases, serial ports, message brokers); exclude pure function libraries (e.g. numpy, pandas, cv_bridge)
 
-Then identify **gaps** — mismatches where one component expects something another component does not provide (e.g. calls a service that has no server, imports a module that doesn't export the expected symbol, subscribes to a topic nobody publishes).
+Then identify **gaps** — mismatches where one component expects something another does not provide (e.g. calls a service that has no server, imports a module that doesn't export the expected symbol).
 
-### 3A-3. Write ARCHITECTURE.md
+**SINGLE-PACKAGE MODE** — for each source file extract:
+- **Purpose** — what it does in one sentence
+- **Calls** — other files in the package it invokes or imports from, and what it requests from them
+- **External I/O** — external systems it exchanges data with (APIs, databases, serial ports); exclude pure utility imports
+- **Exposes** — functions or classes consumed by other files in the package
+
+Then identify **gaps** — calls to files or functions that don't exist or aren't exported.
+
+### 3A-4. Write ARCHITECTURE.md
 
 Use this exact structure:
 
@@ -63,13 +89,7 @@ Use this exact structure:
 
 ## Component Map
 
-```mermaid
-graph TD
-    classDef warning fill:#ff6b6b,stroke:#cc0000,color:#fff
-
-    <nodes and edges>
-    <gap nodes tagged :::warning>
-```
+<Mermaid diagram — see rules below>
 
 ## Packages
 
@@ -91,11 +111,64 @@ graph TD
 _No gaps detected._
 ```
 
-Rules for the Mermaid diagram:
-- Every package/module is a node
-- Every directional dependency is an edge labelled with what crosses it (e.g. `-->|LocateLandmark srv|`)
-- Every node involved in a gap gets `:::warning`
-- Keep node IDs short (no spaces)
+In **SINGLE-PACKAGE MODE**, replace `## Packages` with `## Files` and use `<!-- file:<path> -->` / `<!-- /file:<path> -->` anchors instead of `<!-- pkg:<name> -->`.
+
+---
+
+### Mermaid diagram rules
+
+Generate the diagram block using this structure:
+
+````
+```mermaid
+graph LR
+    classDef gapStop fill:#cc0000,stroke:#800000,color:#fff
+
+    %% Node declarations
+    NODE_ID["Title Case Label"]
+    ...
+
+    %% Message nodes — stadium/pill, never rectangles
+    MSG_SOURCE_DEST(["<type>: <description>"])
+    ...
+
+    %% Gap stop signs
+    GAP_1{{"✕"}}:::gapStop
+    ...
+
+    %% Edges — grouped by logical flow
+    %% <flow description>
+    NODE_A --> MSG_A_B
+    MSG_A_B --> NODE_B
+
+    %% Gap edges
+    NODE_X --> GAP_1
+
+    linkStyle <N> stroke:#cc0000,stroke-width:2px,stroke-dasharray:5 5
+```
+````
+
+**Rules:**
+
+1. **Direction** — always `graph LR`.
+2. **Descriptive node IDs** — ALL_CAPS with underscores (`AUTH_SERVICE`, `USER_DB`). Never single letters or numbers.
+3. **Title Case labels** — human-readable labels inside nodes use Title Case with spaces (`"Auth Service"`, not `"auth_service"`).
+4. **Declare all nodes first** — all node and message node declarations before any edges, separated by a blank line and `%%` comment.
+5. **One entity per line** — each node declaration and each edge on its own line. Never combine.
+6. **Comment logical sections** — prefix each edge group with a `%% <description>` comment.
+7. **SubGraphs for logical tiers** — wrap nodes that belong to the same logical tier (frontend, backend, data layer, external) in a `subgraph` block with a clear title.
+8. **Shared nodes declared once** — nodes depended on by multiple components go in a `%% Shared resources` section and are referenced by ID only from edge declarations.
+9. **Message nodes for every edge** — never use `-->|text|` inline labels (Mermaid renders them as rectangles, indistinguishable from nodes). Instead chain: `SOURCE --> MSG_SOURCE_DEST(["<type>: <description>"]) --> DEST`. Default ID: `MSG_<SOURCE>_<DEST>`. Add a descriptive suffix only on collision (e.g. `MSG_AUTH_DB_READ`, `MSG_AUTH_DB_WRITE`).
+10. **Message node formats** by interaction type:
+    - HTTP/REST → `"HTTP METHOD /path"` (e.g. `"HTTP GET /users"`)
+    - Event / pub-sub → `"event: EventName"`
+    - Function / method call → `"call: functionName(args)"`
+    - Database query → `"query: description"`
+    - Queue message → `"msg: topic.name"`
+    - File I/O → `"reads: filename"` or `"writes: filename"`
+    - TCP/IP → `"TCP: host:port"`
+    - Generic fallback → `"sends: description"`, `"requests: description"`, or `"receives: description"`
+11. **Gap endpoints** — do not create ghost nodes with explanatory text. For each gap, declare a red hexagon stop sign `GAP_N{{"✕"}}:::gapStop` and draw an arrow to it from the component with the unmet dependency. Apply `linkStyle <N> stroke:#cc0000,stroke-width:2px,stroke-dasharray:5 5` where N is the 0-based index of that link in the diagram. Explain each gap in prose in `## Gaps`.
 
 ---
 
@@ -108,25 +181,29 @@ Run:
 git diff --cached --name-only
 ```
 
-Map each staged file to its package/module (the top-level source directory it lives under). Collect the unique set of changed packages.
+Map each staged file to its package/module. Collect the unique set of changed packages. Deleted source files are treated as edits — re-analyse the package from its remaining source files.
 
 ### 3B-2. Re-read changed packages
 
-For each changed package, read all its source files in full.
+For each changed package, run:
+```
+git ls-files <package-directory>
+```
 
-Also read the current `ARCHITECTURE.md`.
+Read all returned files. Also read the current `ARCHITECTURE.md`.
 
 ### 3B-3. Update anchored sections
 
-For each changed package:
-- Find its section between `<!-- pkg:<name> -->` and `<!-- /pkg:<name> -->` in `ARCHITECTURE.md`
-- Rewrite that section based on the current source files
-- If the package is new (no anchor exists), add a new anchored section under `## Packages`
+**MULTI-PACKAGE MODE:**
+For each changed package, find its section between `<!-- pkg:<name> -->` and `<!-- /pkg:<name> -->` and rewrite it based on the current source. If the package is new, add a new anchored section under `## Packages`.
 
-Then:
-- Re-analyse all gaps across the full project (using updated package knowledge + existing package sections for unchanged packages)
-- Rewrite the `## Gaps` section entirely
-- Rewrite the `## Component Map` Mermaid diagram entirely to reflect current state
+**SINGLE-PACKAGE MODE:**
+For each changed file, find its section between `<!-- file:<path> -->` and `<!-- /file:<path> -->` and rewrite it. If the file is new, add a new anchored section under `## Files`.
+
+Then for both modes:
+- Re-analyse all gaps (using updated knowledge + existing sections for unchanged packages/files)
+- Rewrite `## Gaps` entirely
+- Rewrite the `## Component Map` Mermaid diagram entirely
 - Update the `Last updated` date
 
 ### 3B-4. Write the updated file

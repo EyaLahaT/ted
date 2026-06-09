@@ -9,8 +9,8 @@ Ted is a Claude Code agent that automatically maintains `ARCHITECTURE.md` for an
 ## What Ted does
 
 - Generates and maintains `ARCHITECTURE.md` at your repo root
-- Embeds a Mermaid component diagram with live edges (topics, services, APIs, imports)
-- Marks broken connections and mismatches in red — Ted has seen enough things fall apart to know a gap when he sees one
+- Embeds a Mermaid component diagram with labelled edges showing exactly what crosses each connection
+- Marks broken connections with red stop signs — Ted has seen enough things fall apart to know a gap when he sees one
 - Runs automatically on every `git commit` via a pre-commit hook
 - Works on any project: ROS2, Node, Python, Go, Rust, you name it
 
@@ -48,24 +48,59 @@ Ted installs two things:
 
 2. **`.git/hooks/pre-commit`** — a hook that calls Ted before every commit. The updated `ARCHITECTURE.md` is staged automatically and included in your commit.
 
+### Diagram modes
+
+Ted picks the right diagram based on your project structure:
+
+| Project type | Diagram granularity |
+|---|---|
+| Multiple packages / modules | One node per package |
+| Single package | One node per source file |
+
+Ted detects this automatically by counting package-defining files (`package.json`, `go.mod`, `Cargo.toml`, etc.). If none are found, he falls back to top-level directories.
+
+### Diagram visual language
+
+| Shape | Meaning |
+|---|---|
+| Rectangle `["Label"]` | Component (package or file) |
+| Stadium `(["type: description"])` | Message, request, or data crossing an edge |
+| Red hexagon `{{"✕"}}` | Gap — a dependency with no provider |
+
+**Edge labels** follow a consistent format based on interaction type:
+
+| Interaction | Format | Example |
+|---|---|---|
+| HTTP / REST | `HTTP METHOD /path` | `HTTP POST /login` |
+| Event / pub-sub | `event: Name` | `event: UserCreated` |
+| Function call | `call: name(args)` | `call: getUser(id)` |
+| Database query | `query: description` | `query: find user` |
+| Queue message | `msg: topic` | `msg: order.placed` |
+| File I/O | `reads: file` / `writes: file` | `reads: config.json` |
+| TCP/IP | `TCP: host:port` | `TCP: db:5432` |
+| Generic | `sends:` / `requests:` / `receives:` | `sends: payload` |
+
+
 ### Update logic
 
 ```
 commit triggered
-  └─ only ARCHITECTURE.md staged?       → skip (loop guard)
-  └─ ARCHITECTURE.md missing?           → full generation
-  └─ any files deleted in this commit?  → full regeneration
-  └─ otherwise                          → incremental update
-       └─ find changed packages
-       └─ re-read entire package
+  └─ only ARCHITECTURE.md staged?            → skip (loop guard)
+  └─ ARCHITECTURE.md missing?                → full generation
+  └─ package-defining file deleted?          → full generation
+  └─ otherwise                               → incremental update
+       └─ find changed packages/files
+       └─ re-read via git ls-files
        └─ update anchored sections
        └─ rewrite Mermaid diagram
        └─ rewrite Gaps section
 ```
 
+Ted only reads files tracked by git — anything in `.gitignore` is ignored automatically.
+
 ### Gap detection
 
-Ted marks components involved in a mismatch with `classDef warning fill:#ff6b6b` in the Mermaid diagram, and explains each gap in prose below it. Because Ted knows what it feels like when things don't connect the way they should. Classic Schmosby
+When a component depends on something that doesn't exist, Ted draws a red dashed arrow to a red hexagon stop sign and explains the gap in prose below the diagram. Because Ted knows what it feels like when things don't connect the way they should. Classic Schmosby
 
 ---
 
