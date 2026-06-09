@@ -77,7 +77,7 @@ echo "→ Configuring Claude Code permissions ..."
 SETTINGS_DIR=".claude"
 SETTINGS_FILE="$SETTINGS_DIR/settings.json"
 
-TED_PERMS='["Read(*)", "Write(ARCHITECTURE.md)", "Bash(git diff*)", "Bash(git ls-files*)", "Bash(git add ARCHITECTURE.md)"]'
+TED_PERMS='["Read(*)", "Write(*ARCHITECTURE.md)", "Edit(*ARCHITECTURE.md)", "Bash(git diff*)", "Bash(git ls-files*)", "Bash(git add *ARCHITECTURE.md)"]'
 
 mkdir -p "$SETTINGS_DIR"
 
