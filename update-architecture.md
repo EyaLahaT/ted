@@ -95,10 +95,23 @@ Use this exact structure:
 
 <!-- pkg:<name> -->
 ### `<name>`
-**Purpose:** <one sentence>  
-**Exposes:** <list or "nothing">  
-**Consumes:** <list or "nothing">  
+
+**Purpose:** <one sentence>
+
+**Exposes:**
+- <item>
+- <item>
+
+**Consumes:**
+- <item>
+- <item>
+
 <!-- /pkg:<name> -->
+
+- Always use bullet lists under each field — never inline semicolon-separated text.
+- If a field has only one item, still use a single bullet.
+- If a field has nothing, write the field header followed by `_nothing_` on the next line (no bullet).
+- Include **Parameters** and **External deps** sections when present, using the same bullet format.
 
 <repeat for each package>
 
@@ -111,7 +124,7 @@ Use this exact structure:
 _No gaps detected._
 ```
 
-In **SINGLE-PACKAGE MODE**, replace `## Packages` with `## Files` and use `<!-- file:<path> -->` / `<!-- /file:<path> -->` anchors instead of `<!-- pkg:<name> -->`.
+In **SINGLE-PACKAGE MODE**, replace `## Packages` with `## Files` and use `<!-- file:<path> -->` / `<!-- /file:<path> -->` anchors instead of `<!-- pkg:<name> -->`. Apply the same bullet-list formatting rules to all fields.
 
 ---
 
@@ -128,21 +141,16 @@ graph LR
     NODE_ID["Title Case Label"]
     ...
 
-    %% Message nodes — stadium/pill, never rectangles
-    MSG_SOURCE_DEST(["<type>: <description>"])
-    ...
-
     %% Gap stop signs
     GAP_1{{"✕"}}:::gapStop
     ...
 
     %% Edges — grouped by logical flow
     %% <flow description>
-    NODE_A --> MSG_A_B
-    MSG_A_B --> NODE_B
+    NODE_A -->|"<type>: <description>"| NODE_B
 
     %% Gap edges
-    NODE_X --> GAP_1
+    NODE_X -->|"<type>: <description>"| GAP_1
 
     linkStyle <N> stroke:#cc0000,stroke-width:2px,stroke-dasharray:5 5
 ```
@@ -153,13 +161,13 @@ graph LR
 1. **Direction** — always `graph LR`.
 2. **Descriptive node IDs** — ALL_CAPS with underscores (`AUTH_SERVICE`, `USER_DB`). Never single letters or numbers.
 3. **Title Case labels** — human-readable labels inside nodes use Title Case with spaces (`"Auth Service"`, not `"auth_service"`).
-4. **Declare all nodes first** — all node and message node declarations before any edges, separated by a blank line and `%%` comment.
+4. **Declare all nodes first** — all node declarations before any edges, separated by a blank line and `%%` comment.
 5. **One entity per line** — each node declaration and each edge on its own line. Never combine.
 6. **Comment logical sections** — prefix each edge group with a `%% <description>` comment.
 7. **SubGraphs for logical tiers** — wrap nodes that belong to the same logical tier (frontend, backend, data layer, external) in a `subgraph` block with a clear title.
 8. **Shared nodes declared once** — nodes depended on by multiple components go in a `%% Shared resources` section and are referenced by ID only from edge declarations.
-9. **Message nodes for every edge** — never use `-->|text|` inline labels (Mermaid renders them as rectangles, indistinguishable from nodes). Instead chain: `SOURCE --> MSG_SOURCE_DEST(["<type>: <description>"]) --> DEST`. Default ID: `MSG_<SOURCE>_<DEST>`. Add a descriptive suffix only on collision (e.g. `MSG_AUTH_DB_READ`, `MSG_AUTH_DB_WRITE`).
-10. **Message node formats** by interaction type:
+9. **Inline edge labels** — use `-->|"<type>: <description>"| DEST` for every edge. One arrow per interaction; do not combine multiple interactions onto a single arrow.
+10. **Edge label formats** by interaction type:
     - HTTP/REST → `"HTTP METHOD /path"` (e.g. `"HTTP GET /users"`)
     - Event / pub-sub → `"event: EventName"`
     - Function / method call → `"call: functionName(args)"`
@@ -168,7 +176,7 @@ graph LR
     - File I/O → `"reads: filename"` or `"writes: filename"`
     - TCP/IP → `"TCP: host:port"`
     - Generic fallback → `"sends: description"`, `"requests: description"`, or `"receives: description"`
-11. **Gap endpoints** — do not create ghost nodes with explanatory text. For each gap, declare a red hexagon stop sign `GAP_N{{"✕"}}:::gapStop` and draw an arrow to it from the component with the unmet dependency. Apply `linkStyle <N> stroke:#cc0000,stroke-width:2px,stroke-dasharray:5 5` where N is the 0-based index of that link in the diagram. Explain each gap in prose in `## Gaps`.
+11. **Gap endpoints** — do not create ghost nodes with explanatory text. For each gap, declare a red hexagon stop sign `GAP_N{{"✕"}}:::gapStop` and draw an arrow to it with an inline label describing what is missing: `NODE_X -->|"<type>: <what is expected>"| GAP_N`. Apply `linkStyle <N> stroke:#cc0000,stroke-width:2px,stroke-dasharray:5 5` where N is the 0-based index of that link in the diagram. Explain each gap in prose in `## Gaps`.
 
 ---
 

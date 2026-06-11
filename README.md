@@ -64,8 +64,9 @@ Ted detects this automatically by counting package-defining files (`package.json
 | Shape | Meaning |
 |---|---|
 | Rectangle `["Label"]` | Component (package or file) |
-| Stadium `(["type: description"])` | Message, request, or data crossing an edge |
 | Red hexagon `{{"✕"}}` | Gap — a dependency with no provider |
+
+Arrow labels describe exactly what crosses each connection, using the format `type: description` (e.g. `HTTP POST /login`, `event: UserCreated`, `srv call: heart_rate/get_reading`).
 
 **Edge labels** follow a consistent format based on interaction type:
 
